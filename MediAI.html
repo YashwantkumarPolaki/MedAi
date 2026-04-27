@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediAI – AI Health Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --accent: #00d4aa;
+  --blue: #0080ff;
+  --purple: #a855f7;
+  --danger: #ff4455;
+  --warn: #ffaa00;
+  --ok: #00cc88;
+  --bg: #030a14;
+  --glass: rgba(255,255,255,0.04);
+  --glass-border: rgba(255,255,255,0.08);
+  --text: #e8f0fe;
+  --muted: rgba(255,255,255,0.4);
+  --radius: 16px;
+}
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: radial-gradient(ellipse at 20% 20%, #000d1a 0%, #030a14 50%, #000508 100%);
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,212,170,0.4); border-radius: 2px; }
+
+/* ── ANIMATED BLOBS ── */
+.blobs { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: blobFloat 20s infinite ease-in-out;
+}
+.blob1 { width: 500px; height: 500px; background: rgba(0,212,170,0.15); top: -150px; left: -100px; }
+.blob2 { width: 450px; height: 450px; background: rgba(0,128,255,0.12); top: -100px; right: -100px; animation-delay: -7s; }
+.blob3 { width: 400px; height: 400px; background: rgba(168,85,247,0.1); bottom: -150px; left: 50%; transform: translateX(-50%); animation-delay: -14s; }
+@keyframes blobFloat {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33% { transform: translate(30px,-20px) scale(1.05); }
+  66% { transform: translate(-20px,10px) scale(0.95); }
+}
+.blob3 { animation: blobFloat3 20s infinite ease-in-out; animation-delay: -14s; }
+@keyframes blobFloat3 {
+  0%,100% { transform: translateX(-50%) translate(0,0) scale(1); }
+  33% { transform: translateX(-50%) translate(30px,-20px) scale(1.05); }
+  66% { transform: translateX(-50%) translate(-20px,10px) scale(0.95); }
+}
+
+/* ── LAYOUT ── */
+#app {
+  position: relative; z-index: 1;
+  display: flex; height: 100vh;
+  padding: 12px; gap: 12px;
+}
+
+/* ── GLASS PANEL ── */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+}
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: 260px; min-width: 260px;
+  display: flex; flex-direction: column;
+  padding: 20px 16px;
+  animation: slideInLeft 0.3s ease forwards;
+}
+@keyframes slideInLeft { from { transform: translateX(-30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.logo-area { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; padding: 0 4px; }
+.logo-pulse {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(0,212,170,0.4);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0,212,170,0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(0,212,170,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,212,170,0); }
+}
+.logo-text { display: flex; flex-direction: column; }
+.logo-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; color: var(--accent); line-height: 1; }
+.logo-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 12px;
+  cursor: pointer; transition: all 0.2s ease;
+  color: var(--muted); font-size: 14px; font-weight: 500;
+  border: 1px solid transparent;
+  user-select: none;
+}
+.nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.nav-item.active {
+  background: rgba(0,212,170,0.1);
+  border-color: rgba(0,212,170,0.2);
+  border-left: 3px solid var(--accent);
+  color: var(--accent);
+}
+.nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+.session-stats {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 8px;
+}
+.stats-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; }
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+.stat-label { color: var(--muted); }
+.stat-val { color: var(--text); font-weight: 500; }
+.urgency-badge {
+  padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.badge-low { background: rgba(0,204,136,0.15); color: var(--ok); border: 1px solid rgba(0,204,136,0.3); }
+.badge-moderate { background: rgba(255,170,0,0.15); color: var(--warn); border: 1px solid rgba(255,170,0,0.3); }
+.badge-high { background: rgba(255,107,53,0.15); color: #ff6b35; border: 1px solid rgba(255,107,53,0.3); }
+.badge-emergency { background: rgba(255,68,85,0.15); color: var(--danger); border: 1px solid rgba(255,68,85,0.3); }
+#session-timer { font-family: monospace; font-size: 13px; color: var(--accent); }
+
+/* ── MAIN CHAT ── */
+#chat-panel {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  animation: fadeIn 0.4s ease 0.1s both;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.chat-header {
+  padding: 16px 20px;
+  display: flex; align-items: center; gap: 14px;
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+.chat-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.chat-header-info { flex: 1; }
+.chat-header-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; }
+.chat-status { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: pulse 2s infinite; }
+.status-text { font-size: 12px; color: var(--ok); }
+.chat-header-right { font-size: 11px; color: var(--muted); text-align: right; }
+
+#messages-area {
+  flex: 1; overflow-y: auto; padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.msg-wrapper { display: flex; flex-direction: column; gap: 4px; animation: msgAppear 0.3s ease forwards; }
+@keyframes msgAppear { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.msg-wrapper.user { align-items: flex-end; }
+.msg-wrapper.ai { align-items: flex-start; }
+
+.msg-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); padding: 0 4px; }
+.msg-avatar-sm {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  display: flex; align-items: center; justify-content: center; font-size: 10px;
+  flex-shrink: 0;
+}
+
+.msg-bubble {
+  padding: 12px 16px; max-width: 80%; line-height: 1.6;
+  word-break: break-word;
+}
+.msg-wrapper.user .msg-bubble {
+  background: rgba(0,212,170,0.08);
+  border: 1px solid rgba(0,212,170,0.2);
+  border-radius: 16px 16px 4px 16px;
+  max-width: 75%;
+  color: var(--text);
+}
+.msg-wrapper.ai .msg-bubble {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px 16px 16px 4px;
+}
+
+/* Typing indicator */
+.typing-indicator { display: flex; align-items: center; gap: 5px; padding: 14px 18px; }
+.typing-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); opacity: 0.6;
+  animation: typingBounce 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%,60%,100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+}
+
+/* Chips */
+.chips-row {
+  padding: 10px 20px 8px;
+  display: flex; flex-wrap: wrap; gap: 8px;
+  border-top: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+.chip {
+  padding: 5px 14px; border-radius: 20px;
+  background: rgba(0,212,170,0.06);
+  border: 1px solid rgba(0,212,170,0.2);
+  color: var(--accent); font-size: 12px; cursor: pointer;
+  transition: all 0.2s ease; font-family: 'DM Sans', sans-serif;
+}
+.chip:hover { background: rgba(0,212,170,0.15); transform: translateY(-1px); }
+
+/* Input row */
+.input-area {
+  padding: 12px 16px;
+  border-top: 1px solid var(--glass-border);
+  display: flex; align-items: flex-end; gap: 10px;
+  flex-shrink: 0;
+}
+#chat-input {
+  flex: 1; background: rgba(255,255,255,0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px; padding: 10px 14px;
+  color: var(--text); font-family: 'DM Sans', sans-serif;
+  font-size: 14px; resize: none; outline: none;
+  line-height: 1.5; max-height: 100px; overflow-y: auto;
+  transition: border-color 0.2s;
+}
+#chat-input:focus { border-color: rgba(0,212,170,0.4); box-shadow: 0 0 0 3px rgba(0,212,170,0.06); }
+#chat-input::placeholder { color: var(--muted); }
+#chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+#send-btn {
+  width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  border: none; cursor: pointer; color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(0,212,170,0.2);
+}
+#send-btn:hover { box-shadow: 0 0 20px rgba(0,212,170,0.4); transform: translateY(-1px); }
+#send-btn:active { transform: scale(0.95); }
+#send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.disclaimer {
+  text-align: center; font-size: 11px; color: var(--muted);
+  padding: 8px 16px;
+  border-top: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+/* ── RIGHT PANEL ── */
+#right-panel {
+  width: 300px; min-width: 300px;
+  display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; overflow-x: hidden;
+  padding: 4px 2px;
+  animation: slideInRight 0.3s ease 0.2s both;
+}
+@keyframes slideInRight { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.panel-card {
+  padding: 14px;
+  flex-shrink: 0;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--text); }
+.count-badge {
+  background: rgba(0,212,170,0.15); color: var(--accent);
+  border: 1px solid rgba(0,212,170,0.3);
+  border-radius: 20px; padding: 1px 8px; font-size: 11px; font-weight: 600;
+}
+
+/* Symptoms */
+.symptoms-list { display: flex; flex-direction: column; gap: 8px; }
+.symptom-pill {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--glass-border);
+  animation: pillAppear 0.3s ease forwards;
+  transform-origin: center;
+}
+@keyframes pillAppear { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.symptom-name { font-size: 13px; color: var(--text); }
+.severity-dot {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #000; flex-shrink: 0;
+}
+.sev-7 { background: var(--danger); animation: sevPulse 1s infinite; }
+@keyframes sevPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,68,85,0.5); } 50% { box-shadow: 0 0 0 6px rgba(255,68,85,0); } }
+.sev-56 { background: #ff6b35; }
+.sev-34 { background: var(--warn); }
+.sev-12 { background: var(--ok); }
+
+.empty-state { text-align: center; padding: 20px 10px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.empty-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+
+/* Triage Ring */
+.triage-ring-wrap { display: flex; flex-direction: column; align-items: center; padding: 8px 0; }
+#triage-svg { transform: rotate(-90deg); }
+#ring-bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 8; }
+#ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s ease, stroke 0.5s ease; }
+.triage-center {
+  margin-top: -85px; margin-bottom: 16px;
+  display: flex; flex-direction: column; align-items: center; pointer-events: none;
+}
+.triage-score { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; }
+.triage-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+/* Conditions */
+.conditions-list { display: flex; flex-direction: column; gap: 10px; }
+.condition-item { }
+.condition-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.condition-name { font-size: 13px; color: var(--text); }
+.condition-pct { font-size: 13px; font-weight: 700; }
+.condition-bar-bg { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+.condition-bar { height: 100%; border-radius: 2px; width: 0%; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+.condition-desc { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* Doctors */
+.doctors-list { display: flex; flex-direction: column; gap: 8px; }
+.doctor-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+.doctor-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,212,170,0.1); border-color: rgba(0,212,170,0.2); }
+.doc-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: white; flex-shrink: 0;
+}
+.doc-info { flex: 1; min-width: 0; }
+.doc-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-spec { font-size: 11px; color: var(--muted); }
+.doc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.doc-rating { font-size: 11px; color: var(--warn); }
+.avail-badge {
+  font-size: 10px; padding: 1px 7px; border-radius: 10px; font-weight: 600;
+}
+.avail-today { background: rgba(0,204,136,0.15); color: var(--ok); }
+.avail-tomorrow { background: rgba(255,170,0,0.15); color: var(--warn); }
+.avail-later { background: rgba(255,255,255,0.08); color: var(--muted); }
+.book-btn {
+  background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.3);
+  color: var(--accent); padding: 3px 10px; border-radius: 6px;
+  font-size: 11px; cursor: pointer; transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+.book-btn:hover { background: rgba(0,212,170,0.2); }
+
+.specialty-rec {
+  font-size: 12px; color: var(--muted); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.spec-badge {
+  background: rgba(0,128,255,0.15); color: var(--blue);
+  border: 1px solid rgba(0,128,255,0.3);
+  padding: 2px 8px; border-radius: 10px; font-size: 11px;
+}
+
+/* ── HISTORY PANEL ── */
+#history-panel {
+  width: 300px; min-width: 300px;
+  display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; padding: 4px 2px;
+  animation: slideInRight 0.3s ease both;
+}
+.history-card {
+  padding: 12px 14px; cursor: pointer;
+  transition: all 0.2s ease;
+}
+.history-card:hover { border-color: rgba(0,212,170,0.3); transform: translateX(2px); }
+.history-date { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.history-preview { font-size: 13px; color: var(--text); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-footer { display: flex; align-items: center; justify-content: space-between; }
+.history-count { font-size: 11px; color: var(--muted); }
+.clear-history-btn {
+  margin-top: 8px; width: 100%;
+  background: transparent; border: 1px solid rgba(255,68,85,0.4);
+  color: var(--danger); padding: 8px; border-radius: 8px;
+  cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px;
+  transition: all 0.2s;
+}
+.clear-history-btn:hover { background: rgba(255,68,85,0.1); }
+
+/* ── SETTINGS MODAL ── */
+#settings-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  animation: overlayIn 0.2s ease;
+}
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+#settings-overlay.hidden { display: none; }
+
+.modal {
+  width: 420px; padding: 28px;
+  background: rgba(8,20,40,0.95);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  backdrop-filter: blur(30px);
+  animation: modalIn 0.3s ease;
+  position: relative;
+}
+@keyframes modalIn { from { transform: scale(0.95) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.modal-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; }
+.modal-close {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
+  color: var(--muted); cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.modal-close:hover { background: rgba(255,68,85,0.1); color: var(--danger); border-color: rgba(255,68,85,0.3); }
+
+.form-group { margin-bottom: 18px; }
+.form-label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.input-wrap { position: relative; }
+.form-input {
+  width: 100%; padding: 10px 44px 10px 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px; color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 14px;
+  outline: none; transition: border-color 0.2s;
+}
+.form-input:focus { border-color: rgba(0,212,170,0.5); }
+.eye-btn {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 16px; transition: color 0.2s;
+}
+.eye-btn:hover { color: var(--text); }
+
+.helper-text { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+.helper-text a { color: var(--accent); text-decoration: none; }
+.helper-text a:hover { text-decoration: underline; }
+
+.test-btn {
+  width: 100%; padding: 10px; border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--glass-border);
+  color: var(--text); cursor: pointer; font-family: 'DM Sans', sans-serif;
+  font-size: 14px; transition: all 0.2s; margin-bottom: 10px;
+}
+.test-btn:hover { background: rgba(255,255,255,0.09); }
+.test-result { font-size: 13px; margin-bottom: 12px; min-height: 20px; text-align: center; }
+.test-result.ok { color: var(--ok); }
+.test-result.err { color: var(--danger); }
+
+.save-btn {
+  width: 100%; padding: 12px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  border: none; color: white; font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 15px; cursor: pointer;
+  transition: all 0.2s; box-shadow: 0 4px 20px rgba(0,212,170,0.2);
+}
+.save-btn:hover { box-shadow: 0 4px 30px rgba(0,212,170,0.4); transform: translateY(-1px); }
+
+/* ── HISTORY MODAL ── */
+#history-modal-overlay {
+  position: fixed; inset: 0; z-index: 110;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+}
+#history-modal-overlay.hidden { display: none; }
+.history-modal {
+  width: 560px; max-height: 70vh;
+  display: flex; flex-direction: column;
+  background: rgba(8,20,40,0.97);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  overflow: hidden;
+  animation: modalIn 0.3s ease;
+}
+.history-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.history-modal-body { overflow-y: auto; padding: 20px 24px; flex: 1; }
+.hm-msg { padding: 10px 0; border-bottom: 1px solid var(--glass-border); }
+.hm-sender { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.hm-text { font-size: 13px; line-height: 1.6; }
+
+/* ── TOAST ── */
+#toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 12px 18px; border-radius: 10px;
+  background: rgba(15,30,50,0.95);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  font-size: 13px; max-width: 320px;
+  animation: toastIn 0.3s ease;
+  display: flex; align-items: center; gap: 10px;
+}
+@keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.toast.fade-out { animation: toastOut 0.3s ease forwards; }
+@keyframes toastOut { to { transform: translateX(20px); opacity: 0; } }
+.toast.success { border-color: rgba(0,204,136,0.4); }
+.toast.error { border-color: rgba(255,68,85,0.4); }
+.toast.warning { border-color: rgba(255,170,0,0.4); }
+.toast-icon { font-size: 16px; }
+
+/* ── SPINNER ── */
+.spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: white;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── SYMPTOMS NAV PAGE ── */
+#symptoms-page {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  animation: fadeIn 0.3s ease;
+}
+.symptoms-page-content {
+  flex: 1; overflow-y: auto; padding: 20px;
+}
+.page-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.page-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+.symptom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.symptom-btn {
+  padding: 14px; border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--glass-border);
+  color: var(--text); cursor: pointer;
+  text-align: left; transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+.symptom-btn:hover { border-color: rgba(0,212,170,0.4); background: rgba(0,212,170,0.06); color: var(--accent); transform: translateY(-2px); }
+.symptom-btn-icon { font-size: 20px; display: block; margin-bottom: 6px; }
+.symptom-btn-name { font-size: 13px; font-weight: 500; }
+.symptom-btn-sev { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ── DOCTORS NAV PAGE ── */
+#doctors-page {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  animation: fadeIn 0.3s ease;
+}
+.doctors-page-content { flex: 1; overflow-y: auto; padding: 20px; }
+.doctors-full-grid { display: flex; flex-direction: column; gap: 10px; }
+.doctor-full-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px; border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--glass-border);
+  transition: all 0.2s;
+}
+.doctor-full-card:hover { transform: translateY(-2px); border-color: rgba(0,212,170,0.3); box-shadow: 0 4px 20px rgba(0,212,170,0.1); }
+.doc-avatar-lg {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: white; flex-shrink: 0;
+}
+.doc-full-info { flex: 1; }
+.doc-full-name { font-size: 15px; font-weight: 500; }
+.doc-full-spec { font-size: 12px; color: var(--accent); margin-top: 2px; }
+.doc-full-rating { font-size: 12px; color: var(--warn); margin-top: 4px; }
+.doc-full-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.book-btn-lg {
+  padding: 7px 18px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  border: none; color: white; font-family: 'DM Sans', sans-serif;
+  font-size: 12px; cursor: pointer; font-weight: 500;
+  transition: all 0.2s;
+}
+.book-btn-lg:hover { box-shadow: 0 4px 15px rgba(0,212,170,0.3); transform: translateY(-1px); }
+
+/* ── HIDDEN UTILITY ── */
+.hidden { display: none !important; }
+
+/* AI response message content */
+.ai-response-content { }
+.ai-msg-text { margin-bottom: 10px; line-height: 1.7; }
+.ai-urgency-banner {
+  padding: 8px 12px; border-radius: 8px;
+  margin-bottom: 8px; font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+}
+.urgency-low { background: rgba(0,204,136,0.1); border: 1px solid rgba(0,204,136,0.3); color: var(--ok); }
+.urgency-moderate { background: rgba(255,170,0,0.1); border: 1px solid rgba(255,170,0,0.3); color: var(--warn); }
+.urgency-high { background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.3); color: #ff6b35; }
+.urgency-emergency { background: rgba(255,68,85,0.1); border: 1px solid rgba(255,68,85,0.3); color: var(--danger); }
+
+.ai-tips { margin-top: 8px; }
+.ai-tips-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.ai-tip { padding: 5px 0; font-size: 12px; color: var(--text); display: flex; gap: 8px; }
+.ai-tip::before { content: "•"; color: var(--accent); flex-shrink: 0; }
+.ai-disclaimer { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 8px; border-top: 1px solid var(--glass-border); padding-top: 8px; }
+
+/* Focus outline */
+*:focus-visible { outline: 2px solid rgba(0,212,170,0.5); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Blobs -->
+<div class="blobs">
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+</div>
+
+<!-- App -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="glass">
+    <div class="logo-area">
+      <div class="logo-pulse"></div>
+      <div class="logo-text">
+        <span class="logo-title">MediAI</span>
+        <span class="logo-sub">AI Health Assistant</span>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-item active" data-nav="chat">
+        <span class="nav-icon">🩺</span> Chat
+      </div>
+      <div class="nav-item" data-nav="symptoms">
+        <span class="nav-icon">🧬</span> Symptoms
+      </div>
+      <div class="nav-item" data-nav="doctors">
+        <span class="nav-icon">👨‍⚕️</span> Doctors
+      </div>
+      <div class="nav-item" data-nav="history">
+        <span class="nav-icon">📋</span> History
+      </div>
+      <div class="nav-item" data-nav="settings">
+        <span class="nav-icon">⚙️</span> Settings
+      </div>
+    </nav>
+
+    <div class="session-stats glass">
+      <div class="stats-title">Session Stats</div>
+      <div class="stat-row">
+        <span class="stat-label">Messages</span>
+        <span class="stat-val" id="stat-messages">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Symptoms</span>
+        <span class="stat-val" id="stat-symptoms">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Urgency</span>
+        <span class="urgency-badge badge-low" id="stat-urgency">LOW</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Duration</span>
+        <span id="session-timer">00:00</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CHAT PANEL -->
+  <main id="chat-panel" class="glass">
+    <div class="chat-header">
+      <div class="chat-avatar">🩺</div>
+      <div class="chat-header-info">
+        <div class="chat-header-name">MediAI Assistant</div>
+        <div class="chat-status">
+          <div class="status-dot"></div>
+          <span class="status-text">Online</span>
+        </div>
+      </div>
+      <div class="chat-header-right">Not a medical substitute</div>
+    </div>
+
+    <div id="messages-area"></div>
+
+    <div class="chips-row">
+      <button class="chip" data-chip="Headache">Headache</button>
+      <button class="chip" data-chip="Fever">Fever</button>
+      <button class="chip" data-chip="Chest Pain">Chest Pain</button>
+      <button class="chip" data-chip="Fatigue">Fatigue</button>
+      <button class="chip" data-chip="Nausea">Nausea</button>
+      <button class="chip" data-chip="Cough">Cough</button>
+    </div>
+
+    <div class="input-area">
+      <textarea id="chat-input" placeholder="Describe your symptoms… (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+      <button id="send-btn" title="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+    <div class="disclaimer">⚕️ MediAI provides informational guidance only. Always consult a qualified healthcare professional for medical advice.</div>
+  </main>
+
+  <!-- SYMPTOMS PAGE (hidden by default) -->
+  <section id="symptoms-page" class="glass hidden">
+    <div class="chat-header">
+      <div class="chat-avatar">🧬</div>
+      <div class="chat-header-info">
+        <div class="chat-header-name">Symptom Library</div>
+        <div class="chat-status"><div class="status-dot"></div><span class="status-text">Browse & Select</span></div>
+      </div>
+    </div>
+    <div class="symptoms-page-content">
+      <div class="page-title">Common Symptoms</div>
+      <div class="page-subtitle">Click any symptom to start a conversation about it.</div>
+      <div class="symptom-grid" id="symptom-grid"></div>
+    </div>
+  </section>
+
+  <!-- DOCTORS PAGE (hidden by default) -->
+  <section id="doctors-page" class="glass hidden">
+    <div class="chat-header">
+      <div class="chat-avatar">👨‍⚕️</div>
+      <div class="chat-header-info">
+        <div class="chat-header-name">Doctor Directory</div>
+        <div class="chat-status"><div class="status-dot"></div><span class="status-text">12 Specialists Available</span></div>
+      </div>
+    </div>
+    <div class="doctors-page-content">
+      <div class="page-title">Our Specialists</div>
+      <div class="page-subtitle">Browse our network of certified healthcare professionals.</div>
+      <div class="doctors-full-grid" id="doctors-full-grid"></div>
+    </div>
+  </section>
+
+  <!-- RIGHT ANALYSIS PANEL -->
+  <aside id="right-panel">
+
+    <!-- Card 1: Symptoms -->
+    <div class="panel-card glass">
+      <div class="card-header">
+        <span class="card-title">Detected Symptoms</span>
+        <span class="count-badge" id="symptom-count">0</span>
+      </div>
+      <div id="symptoms-list">
+        <div class="empty-state">
+          <span class="empty-icon">🩺</span>
+          Describe your symptoms<br>to begin analysis
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Triage -->
+    <div class="panel-card glass">
+      <div class="card-header">
+        <span class="card-title">Triage Score</span>
+      </div>
+      <div class="triage-ring-wrap">
+        <svg id="triage-svg" width="110" height="110" viewBox="0 0 110 110">
+          <circle id="ring-bg" cx="55" cy="55" r="45"/>
+          <circle id="ring-fill" cx="55" cy="55" r="45" stroke="#00d4aa" stroke-dasharray="282.74" stroke-dashoffset="282.74"/>
+        </svg>
+        <div class="triage-center">
+          <div class="triage-score" id="triage-score-text" style="color: var(--ok);">–</div>
+          <div class="triage-label" id="triage-label" style="color: var(--ok);">No Data</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Conditions -->
+    <div class="panel-card glass">
+      <div class="card-header">
+        <span class="card-title">Possible Conditions</span>
+      </div>
+      <div id="conditions-list">
+        <div class="empty-state">
+          <span class="empty-icon">🔬</span>
+          Conditions appear after<br>symptom analysis
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: Doctors -->
+    <div class="panel-card glass">
+      <div class="card-header">
+        <span class="card-title">Doctor Recommendation</span>
+      </div>
+      <div id="specialty-rec" class="specialty-rec hidden"></div>
+      <div id="doctors-list">
+        <div class="empty-state">
+          <span class="empty-icon">👨‍⚕️</span>
+          Doctors will be suggested<br>based on your symptoms
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- HISTORY PANEL (hidden by default) -->
+  <aside id="history-panel" class="glass hidden">
+    <div class="chat-header" style="border-bottom:1px solid var(--glass-border)">
+      <div class="chat-avatar">📋</div>
+      <div class="chat-header-info">
+        <div class="chat-header-name">Chat History</div>
+        <div class="chat-status"><div class="status-dot"></div><span class="status-text">Past Sessions</span></div>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:14px;" id="history-list-container">
+      <div class="empty-state" id="history-empty">
+        <span class="empty-icon">📋</span>
+        No chat history yet
+      </div>
+      <div id="history-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <button class="clear-history-btn hidden" id="clear-history-btn">🗑️ Clear All History</button>
+    </div>
+  </aside>
+
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="settings-overlay" class="hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">⚙️ API Configuration</span>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Gemini API Key</label>
+      <div class="input-wrap">
+        <input type="password" class="form-input" id="api-key-input" placeholder="AIzaSy...">
+        <button class="eye-btn" id="eye-btn">👁</button>
+      </div>
+      <div class="helper-text">
+        Get your free key from Google AI Studio →
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com</a>
+      </div>
+    </div>
+    <button class="test-btn" id="test-btn">🔌 Test Connection</button>
+    <div class="test-result" id="test-result"></div>
+    <button class="save-btn" id="save-btn">Save & Continue</button>
+  </div>
+</div>
+
+<!-- HISTORY READ MODAL -->
+<div id="history-modal-overlay" class="hidden">
+  <div class="history-modal glass">
+    <div class="history-modal-header">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;">Session Details</div>
+        <div id="hm-date" style="font-size:12px;color:var(--muted);margin-top:2px;"></div>
+      </div>
+      <button class="modal-close" id="hm-close">✕</button>
+    </div>
+    <div class="history-modal-body" id="hm-body"></div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<script>
+// ── CONFIG ──
+const GEMINI_URL = key => `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+const LS_KEY = 'mediAI_gemini_key';
+const LS_HISTORY = 'mediAI_history';
+const MAX_HISTORY = 20;
+
+const SYSTEM_PROMPT = `You are MediAI, an advanced medical triage assistant. When a user describes symptoms:
+
+1. Extract all symptoms mentioned
+2. Assign each symptom a severity score 1-7:
+   - 7: coma, chest pain, swelling of stomach, weakness in limbs
+   - 6: acute liver failure, swelled lymph nodes, high fever, difficulty breathing
+   - 5: breathlessness, severe headache, vomiting blood, blurred vision
+   - 4: persistent fever, joint pain, back pain, fatigue, dizziness
+   - 3: mild headache, nausea, mild cough, runny nose, sore throat
+   - 1-2: itching, skin rash, minor discomfort, sneezing
+3. Calculate overall triage urgency:
+   - EMERGENCY (any score 7): Seek emergency care immediately
+   - HIGH (max score >= 6 or avg > 5): See a doctor today
+   - MODERATE (avg score 3-5): Schedule appointment within 2-3 days
+   - LOW (avg score < 3): Monitor at home
+4. List 2-3 possible conditions with estimated probability %
+5. Recommend doctor specialty
+6. Give 2-3 home care tips if LOW or MODERATE urgency
+
+ALWAYS respond in this EXACT JSON format, no extra text outside the json block:
+\`\`\`json
+{
+  "message": "Empathetic conversational response (2-3 sentences)",
+  "symptoms": [
+    {"name": "symptom name", "severity": 5, "description": "brief note"}
+  ],
+  "urgency": "LOW|MODERATE|HIGH|EMERGENCY",
+  "urgency_message": "Action to take",
+  "conditions": [
+    {"name": "Condition Name", "probability": 65, "description": "brief description"}
+  ],
+  "specialty": "Recommended doctor specialty",
+  "tips": ["tip 1", "tip 2"],
+  "disclaimer": "Always consult a qualified healthcare professional."
+}
+\`\`\`
+If user greets or asks non-medical questions, respond naturally but still use JSON with empty symptoms array and urgency LOW.`;
+
+// ── DOCTORS DATA ──
+const DOCTORS = [
+  {name:"Dr. Aisha Patel",    spec:"Cardiologist",         rating:4.9, avail:"Today",     init:"AP"},
+  {name:"Dr. Rajesh Kumar",   spec:"General Physician",    rating:4.7, avail:"Today",     init:"RK"},
+  {name:"Dr. Priya Singh",    spec:"Neurologist",          rating:4.8, avail:"Tomorrow",  init:"PS"},
+  {name:"Dr. Arjun Mehta",    spec:"Pulmonologist",        rating:4.6, avail:"Today",     init:"AM"},
+  {name:"Dr. Sneha Rao",      spec:"Gastroenterologist",   rating:4.8, avail:"In 2 days", init:"SR"},
+  {name:"Dr. Vikram Nair",    spec:"Orthopedist",          rating:4.7, avail:"Today",     init:"VN"},
+  {name:"Dr. Kavya Sharma",   spec:"Dermatologist",        rating:4.9, avail:"Tomorrow",  init:"KS"},
+  {name:"Dr. Anand Gupta",    spec:"ENT Specialist",       rating:4.5, avail:"Today",     init:"AG"},
+  {name:"Dr. Meena Joshi",    spec:"Gynecologist",         rating:4.8, avail:"Tomorrow",  init:"MJ"},
+  {name:"Dr. Suresh Iyer",    spec:"Endocrinologist",      rating:4.6, avail:"In 2 days", init:"SI"},
+  {name:"Dr. Divya Krishnan", spec:"Psychiatrist",         rating:4.7, avail:"Today",     init:"DK"},
+  {name:"Dr. Rahul Verma",    spec:"Urologist",            rating:4.5, avail:"Tomorrow",  init:"RV"}
+];
+
+const SYMPTOM_LIBRARY = [
+  {icon:"🤕", name:"Headache",         sev:"Mild – Severe"},
+  {icon:"🌡️", name:"Fever",            sev:"High priority"},
+  {icon:"💔", name:"Chest Pain",       sev:"Emergency"},
+  {icon:"😴", name:"Fatigue",          sev:"Moderate"},
+  {icon:"🤢", name:"Nausea",           sev:"Mild – Moderate"},
+  {icon:"😮‍💨", name:"Cough",           sev:"Mild – Severe"},
+  {icon:"😵‍💫", name:"Dizziness",       sev:"Moderate"},
+  {icon:"🫁", name:"Breathlessness",  sev:"High priority"},
+  {icon:"🦴", name:"Joint Pain",       sev:"Moderate"},
+  {icon:"🤮", name:"Vomiting",         sev:"Moderate – Severe"},
+  {icon:"👁️", name:"Blurred Vision",   sev:"High priority"},
+  {icon:"🫀", name:"Palpitations",     sev:"High priority"},
+  {icon:"🤧", name:"Runny Nose",       sev:"Mild"},
+  {icon:"🦷", name:"Sore Throat",      sev:"Mild"},
+  {icon:"🩹", name:"Skin Rash",        sev:"Mild"},
+  {icon:"🔥", name:"Back Pain",        sev:"Moderate"}
+];
+
+// ── STATE ──
+const state = {
+  apiKey: localStorage.getItem(LS_KEY) || '',
+  messages: [],          // {role, text, parsed, timestamp}
+  conversationHistory: [],  // Gemini format
+  sessionSymptoms: [],
+  sessionUrgency: 'LOW',
+  sessionStart: Date.now(),
+  isLoading: false,
+  currentNav: 'chat',
+  timerInterval: null
+};
+
+// ── DOM REFS ──
+const dom = {
+  messagesArea:   () => document.getElementById('messages-area'),
+  chatInput:      () => document.getElementById('chat-input'),
+  sendBtn:        () => document.getElementById('send-btn'),
+  statMessages:   () => document.getElementById('stat-messages'),
+  statSymptoms:   () => document.getElementById('stat-symptoms'),
+  statUrgency:    () => document.getElementById('stat-urgency'),
+  sessionTimer:   () => document.getElementById('session-timer'),
+  symptomsList:   () => document.getElementById('symptoms-list'),
+  symptomCount:   () => document.getElementById('symptom-count'),
+  conditionsList: () => document.getElementById('conditions-list'),
+  doctorsList:    () => document.getElementById('doctors-list'),
+  specialtyRec:   () => document.getElementById('specialty-rec'),
+  triageScore:    () => document.getElementById('triage-score-text'),
+  triageLabel:    () => document.getElementById('triage-label'),
+  ringFill:       () => document.getElementById('ring-fill'),
+  toastContainer: () => document.getElementById('toast-container'),
+  settingsOverlay:() => document.getElementById('settings-overlay'),
+  apiKeyInput:    () => document.getElementById('api-key-input'),
+  testResult:     () => document.getElementById('test-result'),
+  historyList:    () => document.getElementById('history-list'),
+  historyEmpty:   () => document.getElementById('history-empty'),
+  clearHistBtn:   () => document.getElementById('clear-history-btn'),
+  hmOverlay:      () => document.getElementById('history-modal-overlay'),
+  hmDate:         () => document.getElementById('hm-date'),
+  hmBody:         () => document.getElementById('hm-body'),
+  chatPanel:      () => document.getElementById('chat-panel'),
+  rightPanel:     () => document.getElementById('right-panel'),
+  symptomsPage:   () => document.getElementById('symptoms-page'),
+  doctorsPage:    () => document.getElementById('doctors-page'),
+  historyPanel:   () => document.getElementById('history-panel'),
+  symptomGrid:    () => document.getElementById('symptom-grid'),
+  doctorsFullGrid:() => document.getElementById('doctors-full-grid')
+};
+
+// ── GEMINI API ──
+async function callGemini(userMessage) {
+  const key = state.apiKey;
+  if (!key) { showSettings(); return null; }
+
+  // Build conversation history for API
+  const contents = [];
+  // Add history (already in API format)
+  for (const h of state.conversationHistory) {
+    contents.push(h);
+  }
+  // Add current message (prepend system prompt if first message)
+  const isFirst = state.conversationHistory.length === 0;
+  const msgText = isFirst ? SYSTEM_PROMPT + "\n\nUser: " + userMessage : userMessage;
+  contents.push({ role: "user", parts: [{ text: msgText }] });
+
+  const body = {
+    contents,
+    generationConfig: { temperature: 0.4, maxOutputTokens: 1500 }
+  };
+
+  const resp = await fetch(GEMINI_URL(key), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    const msg = errData?.error?.message || resp.statusText;
+    if (resp.status === 400 || resp.status === 403) {
+      showToast('Invalid API key. Check Settings.', 'error');
+      showSettings();
+    } else if (resp.status === 429) {
+      showToast('Rate limited. Please wait a moment.', 'warning');
+    } else {
+      showToast('Gemini API Error: ' + msg, 'error');
+    }
+    return null;
+  }
+
+  const data = await resp.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  // Update conversation history
+  state.conversationHistory.push({ role: "user", parts: [{ text: msgText }] });
+  state.conversationHistory.push({ role: "model", parts: [{ text }] });
+
+  return text;
+}
+
+async function testConnection(key) {
+  const body = {
+    contents: [{ role: "user", parts: [{ text: "Say hello in one word" }] }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 10 }
+  };
+  const resp = await fetch(GEMINI_URL(key), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    const e = await resp.json().catch(() => ({}));
+    throw new Error(e?.error?.message || 'Connection failed');
+  }
+  return true;
+}
+
+// ── CHAT LOGIC ──
+async function sendMessage(text) {
+  text = text.trim();
+  if (!text || state.isLoading) return;
+  if (!state.apiKey) { showSettings(); return; }
+
+  // Add user message
+  const userMsg = { role: 'user', text, timestamp: new Date() };
+  state.messages.push(userMsg);
+  appendUserMessage(userMsg);
+
+  // Update stats
+  state.isLoading = true;
+  setInputDisabled(true);
+  dom.chatInput().value = '';
+  autoResize(dom.chatInput());
+
+  // Show typing
+  const typingEl = showTypingIndicator();
+
+  let rawText = null;
+  try {
+    rawText = await callGemini(text);
+  } catch(e) {
+    showToast('Network error. Check your connection.', 'error');
+  }
+
+  removeTypingIndicator(typingEl);
+  state.isLoading = false;
+  setInputDisabled(false);
+  dom.chatInput().focus();
+
+  if (!rawText) return;
+
+  // Parse JSON
+  let parsed = null;
+  const jsonMatch = rawText.match(/```json([\s\S]*?)```/);
+  if (jsonMatch) {
+    try { parsed = JSON.parse(jsonMatch[1].trim()); } catch(e) { /* fall through */ }
+  }
+  if (!parsed) {
+    // try direct JSON
+    try { parsed = JSON.parse(rawText.trim()); } catch(e) { /* fall through */ }
+  }
+
+  const aiMsg = { role: 'ai', text: rawText, parsed, timestamp: new Date() };
+  state.messages.push(aiMsg);
+  appendAIMessage(aiMsg);
+  updateStats();
+
+  // Update analysis panel
+  if (parsed) {
+    updateAnalysisPanel(parsed);
+    saveHistory();
+  }
+}
+
+function parseResponse(raw) {
+  const match = raw.match(/```json([\s\S]*?)```/);
+  if (match) {
+    try { return JSON.parse(match[1].trim()); } catch(e) {}
+  }
+  try { return JSON.parse(raw.trim()); } catch(e) {}
+  return null;
+}
+
+// ── UI UPDATES ──
+function appendUserMessage(msg) {
+  const area = dom.messagesArea();
+  const time = formatTime(msg.timestamp);
+  const el = document.createElement('div');
+  el.className = 'msg-wrapper user';
+  el.innerHTML = `
+    <div class="msg-meta" style="justify-content:flex-end;">
+      <span>${time}</span>
+      <span style="font-weight:500;color:var(--accent)">You</span>
+    </div>
+    <div class="msg-bubble">${escapeHtml(msg.text)}</div>
+  `;
+  area.appendChild(el);
+  scrollToBottom();
+}
+
+function appendAIMessage(msg) {
+  const area = dom.messagesArea();
+  const time = formatTime(msg.timestamp);
+  const p = msg.parsed;
+  const el = document.createElement('div');
+  el.className = 'msg-wrapper ai';
+
+  let innerHtml = '';
+  if (p) {
+    // Urgency banner
+    let urgencyClass = 'urgency-' + (p.urgency || 'low').toLowerCase();
+    let urgencyIcon = { LOW:'✅', MODERATE:'⚠️', HIGH:'🔶', EMERGENCY:'🚨' }[p.urgency] || '✅';
+    let urgencyBanner = p.urgency && p.urgency !== 'LOW' ? `
+      <div class="ai-urgency-banner ${urgencyClass}">${urgencyIcon} ${p.urgency_message || p.urgency}</div>
+    ` : '';
+
+    // Tips
+    let tipsHtml = '';
+    if (p.tips && p.tips.length > 0) {
+      tipsHtml = `<div class="ai-tips">
+        <div class="ai-tips-title">Home Care Tips</div>
+        ${p.tips.map(t => `<div class="ai-tip">${escapeHtml(t)}</div>`).join('')}
+      </div>`;
+    }
+
+    innerHtml = `
+      <div class="ai-response-content">
+        <div class="ai-msg-text">${escapeHtml(p.message || msg.text)}</div>
+        ${urgencyBanner}
+        ${tipsHtml}
+        ${p.disclaimer ? `<div class="ai-disclaimer">${escapeHtml(p.disclaimer)}</div>` : ''}
+      </div>
+    `;
+  } else {
+    innerHtml = `<div>${escapeHtml(msg.text)}</div>`;
+  }
+
+  el.innerHTML = `
+    <div class="msg-meta">
+      <div class="msg-avatar-sm">🩺</div>
+      <span style="font-weight:500;color:var(--text)">MediAI</span>
+      <span>${time}</span>
+    </div>
+    <div class="msg-bubble">${innerHtml}</div>
+  `;
+  area.appendChild(el);
+  scrollToBottom();
+  dom.statMessages().textContent = state.messages.filter(m => m.role === 'user').length;
+}
+
+function showTypingIndicator() {
+  const area = dom.messagesArea();
+  const el = document.createElement('div');
+  el.className = 'msg-wrapper ai';
+  el.id = 'typing-indicator-wrapper';
+  el.innerHTML = `
+    <div class="msg-meta">
+      <div class="msg-avatar-sm">🩺</div>
+      <span style="font-weight:500;color:var(--text)">MediAI</span>
+    </div>
+    <div class="msg-bubble">
+      <div class="typing-indicator">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+    </div>
+  `;
+  area.appendChild(el);
+  scrollToBottom();
+  return el;
+}
+
+function removeTypingIndicator(el) {
+  if (el && el.parentNode) el.parentNode.removeChild(el);
+}
+
+function setInputDisabled(disabled) {
+  const input = dom.chatInput();
+  const btn = dom.sendBtn();
+  input.disabled = disabled;
+  btn.disabled = disabled;
+  if (disabled) {
+    btn.innerHTML = '<div class="spinner"></div>';
+  } else {
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`;
+  }
+}
+
+function updateStats() {
+  const userCount = state.messages.filter(m => m.role === 'user').length;
+  dom.statMessages().textContent = userCount;
+  dom.statSymptoms().textContent = state.sessionSymptoms.length;
+  const badge = dom.statUrgency();
+  badge.textContent = state.sessionUrgency;
+  badge.className = 'urgency-badge badge-' + state.sessionUrgency.toLowerCase();
+}
+
+function scrollToBottom() {
+  const area = dom.messagesArea();
+  requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+// ── ANALYSIS PANEL ──
+function updateAnalysisPanel(parsed) {
+  if (!parsed) return;
+
+  // Merge symptoms
+  if (parsed.symptoms && parsed.symptoms.length > 0) {
+    for (const s of parsed.symptoms) {
+      const exists = state.sessionSymptoms.find(x => x.name.toLowerCase() === s.name.toLowerCase());
+      if (!exists) state.sessionSymptoms.push(s);
+    }
+  }
+
+  // Update urgency
+  if (parsed.urgency) state.sessionUrgency = parsed.urgency;
+
+  // Render symptoms
+  renderSymptoms();
+
+  // Render triage ring
+  renderTriageRing(parsed);
+
+  // Render conditions
+  renderConditions(parsed.conditions || []);
+
+  // Render doctors
+  renderDoctors(parsed.specialty || '');
+
+  updateStats();
+}
+
+function renderSymptoms() {
+  const list = dom.symptomsList();
+  const count = dom.symptomCount();
+  count.textContent = state.sessionSymptoms.length;
+
+  if (state.sessionSymptoms.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="empty-icon">🩺</span>Describe your symptoms<br>to begin analysis</div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  state.sessionSymptoms.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'symptom-pill';
+    el.style.animationDelay = (i * 0.05) + 's';
+    const sevClass = s.severity >= 7 ? 'sev-7' : s.severity >= 5 ? 'sev-56' : s.severity >= 3 ? 'sev-34' : 'sev-12';
+    el.innerHTML = `
+      <span class="symptom-name">${escapeHtml(s.name)}</span>
+      <div class="severity-dot ${sevClass}">${s.severity}</div>
+    `;
+    list.appendChild(el);
+  });
+}
+
+function renderTriageRing(parsed) {
+  if (!parsed.symptoms || parsed.symptoms.length === 0) return;
+
+  const sevs = parsed.symptoms.map(s => s.severity || 1);
+  const avg = sevs.reduce((a, b) => a + b, 0) / sevs.length;
+  const score = Math.round(avg * 10) / 10;
+
+  const circumference = 2 * Math.PI * 45; // 282.74
+  const fraction = score / 7;
+  const offset = circumference * (1 - fraction);
+
+  const colors = { LOW: '#00cc88', MODERATE: '#ffaa00', HIGH: '#ff6b35', EMERGENCY: '#ff4455' };
+  const color = colors[parsed.urgency] || '#00cc88';
+
+  dom.ringFill().style.strokeDashoffset = offset;
+  dom.ringFill().style.stroke = color;
+  dom.triageScore().textContent = score.toFixed(1) + ' / 7';
+  dom.triageScore().style.color = color;
+  dom.triageLabel().textContent = parsed.urgency || 'LOW';
+  dom.triageLabel().style.color = color;
+}
+
+function renderConditions(conditions) {
+  const list = dom.conditionsList();
+  if (!conditions || conditions.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="empty-icon">🔬</span>Conditions appear after<br>symptom analysis</div>`;
+    return;
+  }
+  list.innerHTML = '<div class="conditions-list">' +
+    conditions.map(c => {
+      const pct = c.probability || 0;
+      const barColor = pct > 70 ? 'var(--danger)' : pct > 40 ? 'var(--warn)' : 'var(--ok)';
+      return `
+        <div class="condition-item">
+          <div class="condition-header">
+            <span class="condition-name">${escapeHtml(c.name)}</span>
+            <span class="condition-pct" style="color:${barColor}">${pct}%</span>
+          </div>
+          <div class="condition-bar-bg">
+            <div class="condition-bar" style="background:${barColor}" data-width="${pct}"></div>
+          </div>
+          ${c.description ? `<div class="condition-desc">${escapeHtml(c.description)}</div>` : ''}
+        </div>`;
+    }).join('') + '</div>';
+
+  // Animate bars after render
+  requestAnimationFrame(() => {
+    list.querySelectorAll('.condition-bar').forEach(bar => {
+      const w = bar.getAttribute('data-width');
+      bar.style.width = '0%';
+      requestAnimationFrame(() => { bar.style.width = w + '%'; });
+    });
+  });
+}
+
+function renderDoctors(specialty) {
+  const rec = dom.specialtyRec();
+  const list = dom.doctorsList();
+
+  if (!specialty) {
+    rec.classList.add('hidden');
+    list.innerHTML = `<div class="empty-state"><span class="empty-icon">👨‍⚕️</span>Doctors will be suggested<br>based on your symptoms</div>`;
+    return;
+  }
+
+  rec.classList.remove('hidden');
+  rec.innerHTML = `Recommended: <span class="spec-badge">${escapeHtml(specialty)}</span>`;
+
+  // Fuzzy match
+  const kw = specialty.toLowerCase();
+  let matched = DOCTORS.filter(d => d.spec.toLowerCase().includes(kw) || kw.includes(d.spec.toLowerCase().split(' ')[0]));
+  if (matched.length === 0) matched = DOCTORS.filter(d => d.spec === 'General Physician');
+  matched = matched.slice(0, 3);
+
+  list.innerHTML = '<div class="doctors-list">' +
+    matched.map(d => {
+      const availClass = d.avail === 'Today' ? 'avail-today' : d.avail === 'Tomorrow' ? 'avail-tomorrow' : 'avail-later';
+      const stars = '⭐'.repeat(Math.round(d.rating));
+      return `
+        <div class="doctor-card">
+          <div class="doc-avatar">${d.init}</div>
+          <div class="doc-info">
+            <div class="doc-name">${d.name}</div>
+            <div class="doc-spec">${d.spec}</div>
+          </div>
+          <div class="doc-right">
+            <div class="doc-rating">${d.rating} ⭐</div>
+            <span class="avail-badge ${availClass}">${d.avail}</span>
+            <button class="book-btn" onclick="bookDoctor('${escapeHtml(d.name)}')">Book</button>
+          </div>
+        </div>`;
+    }).join('') + '</div>';
+}
+
+function bookDoctor(name) {
+  showToast(`Appointment request sent to ${name}!`, 'success');
+}
+
+// ── HISTORY ──
+function saveHistory() {
+  let history = getHistory();
+  const session = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    messages: state.messages.map(m => ({ role: m.role, text: m.parsed ? m.parsed.message || m.text : m.text, timestamp: m.timestamp })),
+    urgency: state.sessionUrgency,
+    firstMsg: state.messages.find(m => m.role === 'user')?.text || ''
+  };
+
+  // Check if we're updating the current session or adding new
+  if (history.length > 0 && state.sessionId && history[0].id === state.sessionId) {
+    history[0] = { ...session, id: state.sessionId };
+  } else {
+    if (!state.sessionId) state.sessionId = session.id;
+    session.id = state.sessionId;
+    history.unshift(session);
+  }
+
+  if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+  localStorage.setItem(LS_HISTORY, JSON.stringify(history));
+}
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(LS_HISTORY) || '[]'); } catch(e) { return []; }
+}
+
+function renderHistoryPanel() {
+  const history = getHistory();
+  const list = dom.historyList();
+  const empty = dom.historyEmpty();
+  const clearBtn = dom.clearHistBtn();
+
+  list.innerHTML = '';
+  if (history.length === 0) {
+    empty.classList.remove('hidden');
+    clearBtn.classList.add('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  clearBtn.classList.remove('hidden');
+
+  history.forEach(session => {
+    const card = document.createElement('div');
+    card.className = 'history-card glass';
+    const date = new Date(session.date);
+    const preview = (session.firstMsg || '').slice(0, 60) + (session.firstMsg?.length > 60 ? '…' : '');
+    const urgencyClass = 'badge-' + (session.urgency || 'low').toLowerCase();
+    card.innerHTML = `
+      <div class="history-date">${formatDateTime(date)}</div>
+      <div class="history-preview">${escapeHtml(preview || 'Empty session')}</div>
+      <div class="history-footer">
+        <span class="history-count">${session.messages?.length || 0} messages</span>
+        <span class="urgency-badge ${urgencyClass}">${session.urgency || 'LOW'}</span>
+      </div>
+    `;
+    card.addEventListener('click', () => openHistoryModal(session));
+    list.appendChild(card);
+  });
+}
+
+function openHistoryModal(session) {
+  const overlay = dom.hmOverlay();
+  const body = dom.hmBody();
+  const dateEl = dom.hmDate();
+
+  dateEl.textContent = formatDateTime(new Date(session.date));
+  body.innerHTML = '';
+
+  if (!session.messages || session.messages.length === 0) {
+    body.innerHTML = '<div class="empty-state">No messages in this session</div>';
+  } else {
+    session.messages.forEach(msg => {
+      const div = document.createElement('div');
+      div.className = 'hm-msg';
+      div.innerHTML = `
+        <div class="hm-sender">${msg.role === 'user' ? '👤 You' : '🩺 MediAI'}</div>
+        <div class="hm-text">${escapeHtml(msg.text || '')}</div>
+      `;
+      body.appendChild(div);
+    });
+  }
+  overlay.classList.remove('hidden');
+}
+
+// ── SETTINGS ──
+function showSettings() {
+  const overlay = dom.settingsOverlay();
+  const input = dom.apiKeyInput();
+  overlay.classList.remove('hidden');
+  input.value = state.apiKey || '';
+  dom.testResult().textContent = '';
+}
+
+function hideSettings() {
+  dom.settingsOverlay().classList.add('hidden');
+}
+
+// ── NAV ──
+function setNav(nav) {
+  state.currentNav = nav;
+
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelector(`[data-nav="${nav}"]`)?.classList.add('active');
+
+  // Show/hide main sections
+  dom.chatPanel().classList.toggle('hidden', nav !== 'chat');
+  dom.symptomsPage().classList.toggle('hidden', nav !== 'symptoms');
+  dom.doctorsPage().classList.toggle('hidden', nav !== 'doctors');
+  dom.rightPanel().classList.toggle('hidden', nav === 'history' || nav === 'symptoms' || nav === 'doctors');
+  dom.historyPanel().classList.toggle('hidden', nav !== 'history');
+
+  if (nav === 'history') renderHistoryPanel();
+  if (nav === 'settings') { setNav('chat'); showSettings(); return; }
+  if (nav === 'symptoms') renderSymptomsPage();
+  if (nav === 'doctors') renderDoctorsPage();
+}
+
+function renderSymptomsPage() {
+  const grid = dom.symptomGrid();
+  grid.innerHTML = '';
+  SYMPTOM_LIBRARY.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'symptom-btn';
+    btn.innerHTML = `
+      <span class="symptom-btn-icon">${s.icon}</span>
+      <div class="symptom-btn-name">${s.name}</div>
+      <div class="symptom-btn-sev">${s.sev}</div>
+    `;
+    btn.addEventListener('click', () => {
+      setNav('chat');
+      setTimeout(() => {
+        dom.chatInput().value = `I have ${s.name.toLowerCase()}`;
+        dom.chatInput().focus();
+      }, 100);
+    });
+    grid.appendChild(btn);
+  });
+}
+
+function renderDoctorsPage() {
+  const grid = dom.doctorsFullGrid();
+  grid.innerHTML = '';
+  DOCTORS.forEach(d => {
+    const availClass = d.avail === 'Today' ? 'avail-today' : d.avail === 'Tomorrow' ? 'avail-tomorrow' : 'avail-later';
+    const card = document.createElement('div');
+    card.className = 'doctor-full-card glass';
+    card.innerHTML = `
+      <div class="doc-avatar-lg">${d.init}</div>
+      <div class="doc-full-info">
+        <div class="doc-full-name">${d.name}</div>
+        <div class="doc-full-spec">${d.spec}</div>
+        <div class="doc-full-rating">⭐ ${d.rating} rating</div>
+      </div>
+      <div class="doc-full-right">
+        <span class="avail-badge ${availClass}">${d.avail}</span>
+        <button class="book-btn-lg" onclick="bookDoctor('${escapeHtml(d.name)}')">Book Now</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ── TOAST ──
+function showToast(message, type = 'info', duration = 3000) {
+  const container = dom.toastContainer();
+  const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><span>${escapeHtml(message)}</span>`;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+  }, duration);
+}
+
+// ── TIMER ──
+function startTimer() {
+  state.timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - state.sessionStart) / 1000);
+    const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const ss = String(elapsed % 60).padStart(2, '0');
+    dom.sessionTimer().textContent = `${mm}:${ss}`;
+  }, 1000);
+}
+
+// ── UTILS ──
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function formatTime(date) {
+  if (!date) return '';
+  const d = date instanceof Date ? date : new Date(date);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDateTime(date) {
+  if (!date) return '';
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + formatTime(date);
+}
+
+// ── INIT ──
+function init() {
+  // Welcome message
+  const welcomeMsg = {
+    role: 'ai',
+    text: '',
+    parsed: {
+      message: "Hello! I'm MediAI, your AI-powered medical triage assistant. Please describe your symptoms and I'll help analyze them and guide you on the appropriate care. Remember, I provide informational guidance only — always consult a healthcare professional for medical decisions.",
+      symptoms: [], urgency: 'LOW', urgency_message: '', conditions: [], specialty: '',
+      tips: [], disclaimer: ''
+    },
+    timestamp: new Date()
+  };
+  appendAIMessage(welcomeMsg);
+
+  // Start timer
+  startTimer();
+
+  // Show settings if no API key
+  if (!state.apiKey) {
+    setTimeout(showSettings, 500);
+  }
+
+  // Input events
+  const input = dom.chatInput();
+  input.addEventListener('input', () => autoResize(input));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input.value);
+    }
+  });
+
+  dom.sendBtn().addEventListener('click', () => sendMessage(input.value));
+
+  // Quick chips
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const val = chip.getAttribute('data-chip');
+      input.value += (input.value ? ', ' : '') + val;
+      autoResize(input);
+      input.focus();
+    });
+  });
+
+  // Nav
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => setNav(item.getAttribute('data-nav')));
+  });
+
+  // Settings modal
+  document.getElementById('modal-close').addEventListener('click', () => {
+    if (state.apiKey) hideSettings();
+    else showToast('Please enter and save your API key first', 'warning');
+  });
+
+  document.getElementById('eye-btn').addEventListener('click', () => {
+    const inp = dom.apiKeyInput();
+    const btn = document.getElementById('eye-btn');
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+    else { inp.type = 'password'; btn.textContent = '👁'; }
+  });
+
+  document.getElementById('test-btn').addEventListener('click', async () => {
+    const key = dom.apiKeyInput().value.trim();
+    if (!key) { dom.testResult().textContent = '⚠️ Enter an API key first'; dom.testResult().className = 'test-result err'; return; }
+    const btn = document.getElementById('test-btn');
+    btn.textContent = '🔄 Testing…'; btn.disabled = true;
+    dom.testResult().textContent = ''; dom.testResult().className = 'test-result';
+    try {
+      await testConnection(key);
+      dom.testResult().textContent = '✅ Connection successful!';
+      dom.testResult().className = 'test-result ok';
+    } catch(e) {
+      dom.testResult().textContent = '❌ ' + e.message;
+      dom.testResult().className = 'test-result err';
+    }
+    btn.textContent = '🔌 Test Connection'; btn.disabled = false;
+  });
+
+  document.getElementById('save-btn').addEventListener('click', () => {
+    const key = dom.apiKeyInput().value.trim();
+    if (!key) { showToast('Please enter an API key', 'warning'); return; }
+    state.apiKey = key;
+    localStorage.setItem(LS_KEY, key);
+    hideSettings();
+    showToast('API key saved successfully!', 'success');
+  });
+
+  // History modal close
+  document.getElementById('hm-close').addEventListener('click', () => dom.hmOverlay().classList.add('hidden'));
+  dom.hmOverlay().addEventListener('click', e => { if (e.target === dom.hmOverlay()) dom.hmOverlay().classList.add('hidden'); });
+
+  // Clear history
+  dom.clearHistBtn().addEventListener('click', () => {
+    if (confirm('Clear all chat history? This cannot be undone.')) {
+      localStorage.removeItem(LS_HISTORY);
+      renderHistoryPanel();
+      showToast('History cleared', 'success');
+    }
+  });
+
+  // Close settings on overlay click
+  dom.settingsOverlay().addEventListener('click', e => {
+    if (e.target === dom.settingsOverlay() && state.apiKey) hideSettings();
+  });
+
+  // Handle Enter in API key input
+  dom.apiKeyInput().addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('save-btn').click();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
