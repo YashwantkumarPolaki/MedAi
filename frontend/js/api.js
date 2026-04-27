@@ -1,5 +1,9 @@
 // ── API CLIENT ──
-const API_BASE = 'http://localhost:3000';
+// Local dev  → hits uvicorn on port 3000 directly
+// Production → empty string; Netlify proxies /api/* to Render (see netlify.toml)
+const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:3000'
+  : '';
 
 const Api = (() => {
 
